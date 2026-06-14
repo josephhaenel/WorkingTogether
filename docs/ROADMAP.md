@@ -40,7 +40,9 @@ Each initiative lists its **goal**, **why it matters**, the **key tasks**, **dep
 **Depends on:** 1 (so the MCP + CLAUDE.md are wired automatically).
 **Size:** M.
 
-## 3. Awareness dashboard — *make it visible*
+## 3. Awareness dashboard — *make it visible* 🚧 in progress
+
+**Status:** a live dark dashboard is served by the coordination server at `/` (token entered in-page, stored locally; data via the token-gated `/v1/overview`). Shows stat cards, who's-editing with TTL bars, presence, and a recent-decisions feed; auto-refreshes every 2s. Remaining: presence isn't repo-scoped yet; optional SSE for push updates.
 
 **Goal:** a lightweight web view served by the coordination server: live presence, active claims, recent decisions.
 **Why:** humans need to *see* the collaboration; also the best demo/GIF material.

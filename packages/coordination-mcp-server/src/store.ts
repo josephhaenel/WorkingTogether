@@ -499,6 +499,56 @@ export class CoordinationStore {
       fenceHighWater: this.fenceCounter,
     };
   }
+
+  /** A complete, cross-repo snapshot for the awareness dashboard. */
+  overview(decisionLimit = 40) {
+    this.sweep();
+    const claims = [...this.claimById.values()];
+    const repos = new Set<string>(claims.map((c) => c.repo));
+    const decisions = [...this.decisions.values()]
+      .filter((d) => !d.supersededBy)
+      .sort((a, b) => b.ord - a.ord)
+      .slice(0, decisionLimit);
+    for (const d of decisions) repos.add(d.repo);
+    return {
+      serverTime: this.now(),
+      stats: {
+        claims: claims.length,
+        people: this.presence.size,
+        decisions: this.decisions.size,
+        repos: repos.size,
+        fenceHighWater: this.fenceCounter,
+      },
+      claims: claims.map((c) => ({
+        repo: c.repo,
+        holder: c.holder,
+        kind: c.kind,
+        mode: c.mode,
+        anchor: c.anchor,
+        intent: c.intent,
+        grantedAt: c.grantedAt,
+        expiresAt: c.expiresAt,
+      })),
+      presence: [...this.presence.values()].map((p) => ({
+        actorId: p.actorId,
+        kind: p.kind,
+        state: p.state,
+        focus: p.focus,
+        updatedAt: p.updatedAt,
+      })),
+      decisions: decisions.map((d) => ({
+        decisionId: d.decisionId,
+        repo: d.repo,
+        scope: d.scope,
+        kind: d.kind,
+        title: d.title,
+        body: d.body,
+        author: d.author,
+        authorKind: d.authorKind,
+        createdAt: d.createdAt,
+      })),
+    };
+  }
 }
 
 function matchAnchor(glob: string, anchor: string): boolean {

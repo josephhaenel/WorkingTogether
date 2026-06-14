@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WorkingTogether — live awareness</title>
+<style>
+  :root {
+    --bg: #0a0c11;
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-2: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-2: rgba(255, 255, 255, 0.14);
+    --text: #e7e9f0;
+    --muted: #8a90a3;
+    --faint: #5b6172;
+    --agent: #8b7cf6;
+    --human: #34d399;
+    --brand1: #8b7cf6;
+    --brand2: #38bdf8;
+    --radius: 16px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background:
+      radial-gradient(900px 500px at 12% -8%, rgba(139, 124, 246, 0.16), transparent 60%),
+      radial-gradient(800px 520px at 100% 0%, rgba(56, 189, 248, 0.12), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100%;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 11px; flex: none;
+    background: linear-gradient(135deg, var(--brand1), var(--brand2));
+    box-shadow: 0 6px 20px rgba(139, 124, 246, 0.35);
+    display: grid; place-items: center; font-weight: 700; color: #0a0c11; font-size: 18px;
+  }
+  .brand h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  .brand p { font-size: 12px; margin: 1px 0 0; color: var(--muted); }
+  .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .live .dot { background: #34d399; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7); animation: pulse 2s infinite; }
+  .stale .dot { background: #f87171; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.6);} 70% { box-shadow: 0 0 0 7px rgba(52,211,153,0);} 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0);} }
+  select, .btn {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; font-family: var(--sans); cursor: pointer;
+  }
+  select:hover, .btn:hover { border-color: var(--border-2); background: var(--surface-2); }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; backdrop-filter: blur(8px); }
+  .stat .n { font-size: 30px; font-weight: 680; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color .3s; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: blur(10px); overflow: hidden; }
+  .card + .card { margin-top: 16px; }
+  .card h2 { font-size: 13px; font-weight: 620; margin: 0; padding: 15px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 9px; letter-spacing: -0.005em; }
+  .card h2 .count { color: var(--faint); font-weight: 500; }
+  .list { padding: 6px; }
+  .empty { padding: 30px 18px; text-align: center; color: var(--faint); font-size: 13px; }
+
+  .row { display: flex; gap: 12px; padding: 11px 12px; border-radius: 12px; transition: background .15s; }
+  .row:hover { background: var(--surface); }
+  .av { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; font-weight: 650; font-size: 13px; color: #0a0c11; }
+  .av.agent { background: linear-gradient(135deg, #a78bfa, #8b7cf6); }
+  .av.human { background: linear-gradient(135deg, #6ee7b7, #34d399); }
+  .row .main { min-width: 0; flex: 1; }
+  .row .top { display: flex; align-items: center; gap: 8px; }
+  .name { font-weight: 600; font-size: 13.5px; }
+  .tag { font-size: 10.5px; padding: 2px 7px; border-radius: 6px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+  .tag.agent { background: rgba(139,124,246,.16); color: #b6aaff; }
+  .tag.human { background: rgba(52,211,153,.16); color: #6ee7b7; }
+  .repo { font-size: 11.5px; color: var(--faint); margin-left: auto; font-family: var(--mono); }
+  .path { font-family: var(--mono); font-size: 12.5px; color: #cdd2e0; margin-top: 3px; word-break: break-all; }
+  .intent { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .ttl { height: 3px; border-radius: 3px; background: rgba(255,255,255,.08); margin-top: 8px; overflow: hidden; }
+  .ttl > i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand1), var(--brand2)); transition: width .4s; }
+
+  .state { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .sdot.editing { background: #f59e0b; } .sdot.thinking { background: #38bdf8; }
+  .sdot.reading { background: #818cf8; } .sdot.idle { background: var(--faint); }
+  .sdot.landing { background: #34d399; } .sdot.blocked-waiting { background: #f87171; }
+
+  .dec { padding: 12px; border-radius: 12px; }
+  .dec:hover { background: var(--surface); }
+  .dec .top { display: flex; align-items: center; gap: 8px; }
+  .kind { font-size: 10.5px; padding: 2px 7px; border-radius: 6px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.03em; }
+  .k-constraint { background: rgba(248,113,113,.16); color: #fca5a5; }
+  .k-convention { background: rgba(96,165,250,.16); color: #93c5fd; }
+  .k-interface  { background: rgba(192,132,252,.16); color: #d8b4fe; }
+  .k-rationale  { background: rgba(251,191,36,.16); color: #fcd34d; }
+  .k-todo       { background: rgba(245,158,11,.16); color: #fbbf24; }
+  .k-note       { background: rgba(148,163,184,.16); color: #cbd5e1; }
+  .dec .title { font-weight: 600; font-size: 13.5px; margin-top: 6px; }
+  .dec .body { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .dec .meta { font-size: 11px; color: var(--faint); margin-top: 5px; }
+  .ago { color: var(--faint); font-size: 11px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(6,8,12,.78); backdrop-filter: blur(6px); display: none; place-items: center; z-index: 50; }
+  .overlay.show { display: grid; }
+  .modal { width: min(420px, 92vw); background: #11141b; border: 1px solid var(--border-2); border-radius: 18px; padding: 26px; }
+  .modal h3 { margin: 0 0 6px; font-size: 16px; }
+  .modal p { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+  .modal input { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-2); background: #0a0c11; color: var(--text); font-family: var(--mono); font-size: 13px; margin-bottom: 14px; }
+  .modal .btn { width: 100%; text-align: center; background: linear-gradient(135deg, var(--brand1), var(--brand2)); color: #0a0c11; font-weight: 650; border: none; padding: 11px; }
+  .fade { animation: fade .35s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">W</div>
+        <div><h1>WorkingTogether</h1><p>live collaboration awareness</p></div>
+      </div>
+      <div class="spacer"></div>
+      <select id="repo" title="Filter by repo"><option value="">All repos</option></select>
+      <span class="pill" id="livePill"><span class="dot"></span><span id="liveText">connecting…</span></span>
+      <button class="btn" id="tokenBtn" title="Set access token">⚙</button>
+    </header>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>✍️ Who's editing <span class="count" id="claimsCount"></span></h2>
+          <div class="list" id="claims"></div>
+        </div>
+        <div class="card">
+          <h2>🟢 Presence <span class="count" id="presenceCount"></span></h2>
+          <div class="list" id="presence"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🧠 Recent decisions <span class="count" id="decCount"></span></h2>
+        <div class="list" id="decisions"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h3>Access token</h3>
+      <p>This server is protected. Paste the shared <code>WT_TOKEN</code> to view live activity.</p>
+      <input id="tokenInput" type="password" placeholder="token…" autocomplete="off" />
+      <button class="btn" id="tokenSave">Connect</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const TOKEN_KEY = "wt_token";
+
+  // token: from ?token=, else localStorage
+  const url = new URL(location.href);
+  const qsTok = url.searchParams.get("token");
+  if (qsTok) { localStorage.setItem(TOKEN_KEY, qsTok); url.searchParams.delete("token"); history.replaceState({}, "", url.pathname + url.search); }
+  let token = localStorage.getItem(TOKEN_KEY) || "";
+
+  let selectedRepo = "";
+  let lastOk = 0;
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const initial = (s) => (s || "?").trim().charAt(0).toUpperCase();
+  function ago(ms, now) {
+    const d = Math.max(0, Math.round((now - ms) / 1000));
+    if (d < 5) return "just now";
+    if (d < 60) return d + "s ago";
+    if (d < 3600) return Math.floor(d / 60) + "m ago";
+    if (d < 86400) return Math.floor(d / 3600) + "h ago";
+    return Math.floor(d / 86400) + "d ago";
+  }
+
+  $("tokenBtn").onclick = () => { $("tokenInput").value = token; $("overlay").classList.add("show"); $("tokenInput").focus(); };
+  $("tokenSave").onclick = () => { token = $("tokenInput").value.trim(); localStorage.setItem(TOKEN_KEY, token); $("overlay").classList.remove("show"); tick(); };
+  $("tokenInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("tokenSave").click(); });
+  $("repo").onchange = (e) => { selectedRepo = e.target.value; if (window._last) render(window._last); };
+
+  function setLive(state, text) {
+    const p = $("livePill"); p.className = "pill " + state; $("liveText").textContent = text;
+  }
+
+  async function tick() {
+    try {
+      const r = await fetch("/v1/overview", { headers: token ? { authorization: "Bearer " + token } : {} });
+      if (r.status === 401) { setLive("stale", "unauthorized"); $("overlay").classList.add("show"); return; }
+      if (!r.ok) { setLive("stale", "error " + r.status); return; }
+      const data = await r.json();
+      window._last = data; lastOk = Date.now();
+      render(data);
+      setLive("live", "live");
+    } catch (e) {
+      setLive(Date.now() - lastOk > 8000 ? "stale" : "live", "reconnecting…");
+    }
+  }
+
+  function repos(data) {
+    const s = new Set();
+    data.claims.forEach((c) => s.add(c.repo));
+    data.decisions.forEach((d) => s.add(d.repo));
+    return [...s].sort();
+  }
+
+  function render(data) {
+    const now = data.serverTime;
+    // repo filter options
+    const sel = $("repo"); const want = repos(data);
+    const have = [...sel.options].slice(1).map((o) => o.value);
+    if (want.join() !== have.join()) {
+      sel.innerHTML = '<option value="">All repos</option>' + want.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+      sel.value = selectedRepo;
+    }
+    const inRepo = (x) => !selectedRepo || x.repo === selectedRepo;
+    const claims = data.claims.filter(inRepo);
+    const decisions = data.decisions.filter(inRepo);
+    const presence = data.presence; // presence is global (not repo-scoped yet)
+
+    // stats
+    const st = data.stats;
+    $("stats").innerHTML = [
+      ["claims", "Active claims"], ["people", "People online"], ["decisions", "Decisions"],
+      ["repos", "Repos"], ["fenceHighWater", "Fence"],
+    ].map(([k, l]) => `<div class="stat"><div class="n">${st[k] ?? 0}</div><div class="l">${l}</div></div>`).join("");
+
+    // claims
+    $("claimsCount").textContent = claims.length;
+    $("claims").innerHTML = claims.length ? claims.map((c) => {
+      const total = Math.max(1, c.expiresAt - c.grantedAt);
+      const left = Math.max(0, c.expiresAt - now);
+      const pct = Math.max(2, Math.min(100, (left / total) * 100));
+      const k = c.kind === "human" ? "human" : "agent";
+      return `<div class="row fade">
+        <div class="av ${k}">${esc(initial(c.holder))}</div>
+        <div class="main">
+          <div class="top"><span class="name">${esc(c.holder)}</span><span class="tag ${k}">${k}</span><span class="repo">${esc(c.repo)}</span></div>
+          <div class="path">${esc(c.anchor)}</div>
+          ${c.intent ? `<div class="intent">${esc(c.intent)}</div>` : ""}
+          <div class="ttl"><i style="width:${pct}%"></i></div>
+        </div>
+      </div>`;
+    }).join("") : `<div class="empty">Nobody's editing right now — quiet on the wire.</div>`;
+
+    // presence
+    $("presenceCount").textContent = presence.length;
+    $("presence").innerHTML = presence.length ? presence.map((p) => {
+      const k = p.kind === "human" ? "human" : "agent";
+      const focus = p.focus && (p.focus.pathHint || p.focus.intent);
+      return `<div class="row fade">
+        <div class="av ${k}">${esc(initial(p.actorId))}</div>
+        <div class="main">
+          <div class="top"><span class="name">${esc(p.actorId)}</span><span class="tag ${k}">${k}</span>
+            <span class="repo"><span class="state"><span class="sdot ${esc(p.state)}"></span>${esc(p.state)}</span></span></div>
+          ${focus ? `<div class="intent">${esc(p.focus.pathHint || "")} ${esc(p.focus.intent || "")}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("") : `<div class="empty">No one's announced presence.</div>`;
+
+    // decisions
+    $("decCount").textContent = decisions.length;
+    $("decisions").innerHTML = decisions.length ? decisions.map((d) => {
+      const scope = d.scope.level === "repo" ? d.repo : `${d.scope.level}: ${d.scope.id || ""}`;
+      return `<div class="dec fade">
+        <div class="top"><span class="kind k-${esc(d.kind)}">${esc(d.kind)}</span><span class="ago">${ago(d.createdAt, now)}</span></div>
+        <div class="title">${esc(d.title)}</div>
+        ${d.body && d.body !== d.title ? `<div class="body">${esc(d.body)}</div>` : ""}
+        <div class="meta">${esc(scope)} · by ${esc(d.author)}</div>
+      </div>`;
+    }).join("") : `<div class="empty">No decisions recorded yet.</div>`;
+  }
+
+  if (!token) $("overlay").classList.add("show");
+  tick();
+  setInterval(tick, 2000);
+})();
+</script>
+</body>
+</html>

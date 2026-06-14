@@ -16,6 +16,9 @@
 
 import express, { type Request, type Response } from "express";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CoordinationStore } from "./store.js";
 import { buildServer } from "./server.js";
@@ -44,10 +47,14 @@ const TOKEN = process.env.WT_TOKEN; // if set, every request must present it
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
+// The dashboard shell + liveness are public; the data endpoints stay token-gated
+// (the dashboard's JS sends the token on its /v1/overview calls).
+const PUBLIC_PATHS = new Set(["/", "/healthz", "/dashboard"]);
+
 // ---- auth: shared-secret bearer token (skipped entirely if WT_TOKEN is unset) ----
 if (TOKEN) {
   app.use((req: Request, res: Response, next: express.NextFunction) => {
-    if (req.path === "/healthz") return next(); // liveness stays open
+    if (PUBLIC_PATHS.has(req.path)) return next(); // dashboard shell + liveness stay open
     const auth = req.header("authorization");
     const provided = auth?.startsWith("Bearer ") ? auth.slice(7) : req.header("x-wt-token");
     if (provided !== TOKEN) {
@@ -181,6 +188,26 @@ app.post("/v1/decisions", (req: Request, res: Response) => {
   });
   if (r.ok) res.json(r.value);
   else res.status(409).json(r.error);
+});
+
+// ---- awareness dashboard (public shell; data via the token-gated /v1/overview) ----
+const DASHBOARD_HTML = (() => {
+  try {
+    return fs.readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "dashboard.html"),
+      "utf8"
+    );
+  } catch {
+    return "<!doctype html><title>WorkingTogether</title><h1>WorkingTogether</h1><p>dashboard.html not found</p>";
+  }
+})();
+
+app.get("/", (_req: Request, res: Response) => {
+  res.type("html").send(DASHBOARD_HTML);
+});
+
+app.get("/v1/overview", (_req: Request, res: Response) => {
+  res.json(store.overview());
 });
 
 app.get("/healthz", (_req: Request, res: Response) => {
