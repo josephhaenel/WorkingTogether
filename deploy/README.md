@@ -7,7 +7,7 @@ Run your own WorkingTogether server so you and your collaborators can use it on 
 On a fresh Ubuntu/Debian VPS:
 
 ```bash
-git clone <this-repo> workingtogether
+git clone https://github.com/josephhaenel/WorkingTogether.git workingtogether
 cd workingtogether
 sudo bash deploy/setup.sh
 ```
