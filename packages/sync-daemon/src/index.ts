@@ -24,8 +24,9 @@ const room = arg("room") || process.env.WT_ROOM || path.basename(repoDir);
 const coordUrl = arg("coord") || process.env.WT_COORD_URL || undefined;
 const actorId = arg("actor") || process.env.WT_ACTOR_ID || undefined;
 const repoId = arg("repo") || process.env.WT_REPO || room;
+const token = arg("token") || process.env.WT_TOKEN || undefined;
 
-const daemon = new SyncDaemon({ repoDir, relayUrl, room, coordUrl, actorId, repoId });
+const daemon = new SyncDaemon({ repoDir, relayUrl, room, coordUrl, actorId, repoId, token });
 
 daemon.start().catch((e) => {
   console.error("[daemon] fatal:", e);

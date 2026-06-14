@@ -37,6 +37,7 @@ const rooms = new Map<string, Room>();
 // Optional durability: persist each room's CRDT doc to disk so a relay restart
 // doesn't lose live working-tree state. Opt-in via WT_RELAY_DATA_DIR.
 const DATA_DIR = process.env.WT_RELAY_DATA_DIR;
+const TOKEN = process.env.WT_RELAY_TOKEN || process.env.WT_TOKEN; // if set, ws ?token=... must match
 const saveTimers = new Map<string, NodeJS.Timeout>();
 
 function roomFile(name: string): string {
@@ -136,7 +137,15 @@ export function startRelay(port: number): WebSocketServer {
 
   wss.on("connection", (conn: WebSocket, req: IncomingMessage) => {
     conn.binaryType = "arraybuffer";
-    const roomName = decodeURIComponent((req.url || "/").slice(1).split("?")[0]) || "default";
+    const [rawPath, query] = (req.url || "/").slice(1).split("?");
+    if (TOKEN) {
+      const token = new URLSearchParams(query || "").get("token");
+      if (token !== TOKEN) {
+        conn.close(1008, "unauthorized");
+        return;
+      }
+    }
+    const roomName = decodeURIComponent(rawPath) || "default";
     const room = getRoom(roomName);
     room.conns.add(conn);
 

@@ -38,8 +38,24 @@ function shutdown(): void {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
+const TOKEN = process.env.WT_TOKEN; // if set, every request must present it
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+
+// ---- auth: shared-secret bearer token (skipped entirely if WT_TOKEN is unset) ----
+if (TOKEN) {
+  app.use((req: Request, res: Response, next: express.NextFunction) => {
+    if (req.path === "/healthz") return next(); // liveness stays open
+    const auth = req.header("authorization");
+    const provided = auth?.startsWith("Bearer ") ? auth.slice(7) : req.header("x-wt-token");
+    if (provided !== TOKEN) {
+      res.status(401).json({ error: "unauthorized: missing or invalid WT token" });
+      return;
+    }
+    next();
+  });
+}
 
 // ---- MCP endpoint (stateless: fresh server + transport per request, shared store) ----
 app.post("/mcp", async (req: Request, res: Response) => {
@@ -137,5 +153,5 @@ app.listen(PORT, () => {
   console.error(`wt-coordination-mcp-server listening on http://localhost:${PORT}`);
   console.error(`  MCP:   POST /mcp`);
   console.error(`  hooks: POST /v1/claim, POST /v1/release, GET /v1/whos_editing`);
-  console.error(`  health: GET /healthz   (enforceRegistration=${ENFORCE_REGISTRATION}, persist=${DATA_DIR ?? "off"})`);
+  console.error(`  health: GET /healthz   (enforceRegistration=${ENFORCE_REGISTRATION}, persist=${DATA_DIR ?? "off"}, auth=${TOKEN ? "on" : "off"})`);
 });

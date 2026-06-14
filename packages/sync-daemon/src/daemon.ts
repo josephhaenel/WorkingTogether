@@ -39,6 +39,7 @@ export interface DaemonOptions {
   coordUrl?: string; // e.g. http://localhost:4100
   actorId?: string; // must match the hook's WT_ACTOR_ID for reentrancy
   repoId?: string; // claim repo id (defaults to room); must match the hook's WT_REPO
+  token?: string; // shared-secret auth token (relay + coordination), if servers require one
 }
 
 export class SyncDaemon {
@@ -61,6 +62,7 @@ export class SyncDaemon {
     this.provider = new WebsocketProvider(opts.relayUrl, opts.room, this.doc, {
       WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
       connect: true,
+      params: opts.token ? { token: opts.token } : {},
     });
   }
 
@@ -185,7 +187,10 @@ export class SyncDaemon {
       const url =
         `${this.opts.coordUrl}/v1/can_write?repo=${encodeURIComponent(this.repoId)}` +
         `&actorId=${encodeURIComponent(this.opts.actorId!)}&path=${encodeURIComponent(rel)}`;
-      const resp = await fetch(url, { signal: AbortSignal.timeout(1500) });
+      const resp = await fetch(url, {
+        headers: this.opts.token ? { authorization: `Bearer ${this.opts.token}` } : {},
+        signal: AbortSignal.timeout(1500),
+      });
       return (await resp.json()) as { allowed: boolean; holder?: string; holderKind?: string };
     } catch {
       return { allowed: true }; // fail-open: never hard-block editing if coordination is down

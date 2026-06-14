@@ -14,6 +14,7 @@ import path from "node:path";
 const SERVER = process.env.WT_SERVER_URL || "http://localhost:4100";
 const ACTOR = process.env.WT_ACTOR_ID || os.hostname();
 const REPO = process.env.WT_REPO || path.basename(process.cwd());
+const TOKEN = process.env.WT_TOKEN;
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -41,7 +42,7 @@ async function main() {
   try {
     await fetch(`${SERVER}/v1/release_by_region`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(TOKEN ? { authorization: `Bearer ${TOKEN}` } : {}) },
       body: JSON.stringify({ repo: REPO, actorId: ACTOR, path: posixRel }),
       signal: AbortSignal.timeout(1500),
     });

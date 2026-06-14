@@ -21,6 +21,8 @@ const SERVER = process.env.WT_SERVER_URL || "http://localhost:4100";
 const ACTOR = process.env.WT_ACTOR_ID || os.hostname();
 const REPO = process.env.WT_REPO || path.basename(process.cwd());
 const ORIGIN = process.env.WT_ORIGIN || "agent";
+const TOKEN = process.env.WT_TOKEN;
+const authHeaders = TOKEN ? { authorization: `Bearer ${TOKEN}` } : {};
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -62,7 +64,7 @@ async function main() {
   try {
     const resp = await fetch(`${SERVER}/v1/claim`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...authHeaders },
       body: JSON.stringify({
         repo: REPO,
         actorId: ACTOR,

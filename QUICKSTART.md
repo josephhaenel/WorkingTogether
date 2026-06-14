@@ -26,6 +26,8 @@ npm test            # coordination-server unit tests
 
 ## Use it for real (per collaborator)
 
+> **Hosting it for a team (TLS + auth)?** See [deploy/README.md](deploy/README.md) — one script self-hosts the server on a VPS (automatic HTTPS via sslip.io, no domain needed). The steps below are the manual / local-network version.
+
 1. **One person runs the shared services** (or host them somewhere both can reach):
    ```bash
    # set these to persist state across restarts (otherwise in-memory):
