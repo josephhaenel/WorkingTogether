@@ -1,2 +1,4 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# This project runs on Linux servers and ships bash scripts — normalize ALL
+# text to LF in the repo and on checkout, on every platform. (CRLF in a .sh
+# breaks bash; CRLF in generated configs breaks systemd/Caddy.)
+* text=auto eol=lf
