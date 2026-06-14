@@ -1,5 +1,7 @@
 # WorkingTogether
 
+[![CI](https://github.com/josephhaenel/WorkingTogether/actions/workflows/ci.yml/badge.svg)](https://github.com/josephhaenel/WorkingTogether/actions/workflows/ci.yml)
+
 **Multiplayer for AI coding agents.** Two or more people coding the same repository — each with their own Claude Code / Codex session — without overwriting each other's work, and seeing each other's changes live.
 
 > Pair-programming and mob-programming tools assume *humans* typing. AI agents don't type — they rewrite whole functions and files in a single shot. That breaks the usual assumptions, and it's the problem this project is built around.
@@ -113,6 +115,16 @@ This is a working **MVP**: collision avoidance, live sync, shared decisions, per
 - shared-token auth (good for a team you invite; multi-user accounts are a later milestone).
 
 Contributions and ideas welcome — start with the design docs.
+
+## Roadmap
+
+Active plan to make it genuinely good to use (full detail in [docs/ROADMAP.md](docs/ROADMAP.md)):
+
+0. **CI & tests** — build + test + integration demos on every push.
+1. **Frictionless onboarding** — `npx @workingtogether/cli init` wires the hooks and starts the daemon in one command; `wt status`.
+2. **Agents use the shared brain** — agents actively check who's-editing and read/write the decisions bus during real work.
+3. **Awareness dashboard** — a live web view of presence, claims, and decisions.
+4. **Region-level claims** — tree-sitter symbol claims so two agents can work in the same file (different functions), with diff3 conflict-as-data.
 
 ## License
 

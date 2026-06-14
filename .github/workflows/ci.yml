@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm run install:all
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Integration — collision avoidance + live sync
+        run: npm run demo
+
+      - name: Integration — daemon-side enforcement
+        run: npm run demo:enforce
+
+      - name: Integration — relay persistence across restart
+        run: npm run demo:persist
