@@ -64,8 +64,8 @@ function wireHooks(): void {
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 }
 
-/** Keep the token-bearing config out of git. */
-function protectConfig(): void {
+/** Keep token-bearing files out of git. */
+function protectFromGit(patterns: string[]): void {
   const gi = path.join(process.cwd(), ".gitignore");
   let body = "";
   try {
@@ -73,9 +73,56 @@ function protectConfig(): void {
   } catch {
     /* none */
   }
-  if (!body.split(/\r?\n/).some((l) => l.trim() === ".wt/")) {
-    fs.writeFileSync(gi, (body && !body.endsWith("\n") ? body + "\n" : body) + ".wt/\n");
+  const present = new Set(body.split(/\r?\n/).map((l) => l.trim()));
+  const missing = patterns.filter((p) => !present.has(p));
+  if (missing.length) {
+    fs.writeFileSync(gi, (body && !body.endsWith("\n") ? body + "\n" : body) + missing.join("\n") + "\n");
   }
+}
+
+/** Register the coordination MCP server so the agent gets the wt_* tools natively. */
+function writeMcpJson(cfg: WtConfig): void {
+  const p = path.join(process.cwd(), ".mcp.json");
+  let json: { mcpServers?: Record<string, unknown> } = {};
+  try {
+    json = JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    /* new file */
+  }
+  json.mcpServers = json.mcpServers ?? {};
+  json.mcpServers.workingtogether = {
+    type: "http",
+    url: `${cfg.serverUrl.replace(/\/$/, "")}/mcp`,
+    headers: cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {},
+  };
+  fs.writeFileSync(p, JSON.stringify(json, null, 2) + "\n");
+}
+
+const CLAUDE_MD_START = "<!-- workingtogether:start -->";
+const CLAUDE_MD_END = "<!-- workingtogether:end -->";
+
+/** Drop guidance so the agent actively uses the shared brain. Idempotent. */
+function writeClaudeMd(): void {
+  const p = path.join(process.cwd(), "CLAUDE.md");
+  let body = "";
+  try {
+    body = fs.readFileSync(p, "utf8");
+  } catch {
+    /* new file */
+  }
+  if (body.includes(CLAUDE_MD_START)) return; // already wired
+  const section = `${CLAUDE_MD_START}
+## Working together (real-time multiplayer)
+
+You are sharing this repository with other people and their AI agents at the same time. Coordinate through the WorkingTogether tools so you never silently overwrite someone else's work:
+
+- **Before editing**, check who else is active: \`wt who\` (or the \`wt_whos_editing\` MCP tool). If another agent holds the file you need, work on something else and come back.
+- **Before starting on an area**, read prior decisions for it: \`wt decisions --path <file>\` (or \`wt_get_decisions\`). Honor them — they're constraints/conventions teammates established.
+- **When you make a notable choice** (a convention, constraint, interface contract, or non-obvious rationale), record it so others' agents pick it up: \`wt decide "<short title>" --path <file>\` (or \`wt_post_decision\`).
+- Your \`Edit\`/\`Write\` calls are auto-claimed by a hook. If one is **denied** because another agent holds the file, switch tasks and retry shortly rather than forcing it.
+${CLAUDE_MD_END}
+`;
+  fs.writeFileSync(p, body && !body.endsWith("\n") ? body + "\n\n" + section : body + section);
 }
 
 export async function init(): Promise<void> {
@@ -92,11 +139,15 @@ export async function init(): Promise<void> {
 
   const cfg: WtConfig = { serverUrl, relayUrl, token: token || undefined, repo, actor };
   saveConfig(cfg);
-  protectConfig();
+  protectFromGit([".wt/", ".mcp.json"]);
   wireHooks();
+  writeMcpJson(cfg);
+  writeClaudeMd();
 
   console.log(`\n✓ wrote ${path.relative(process.cwd(), CONFIG_PATH)} (gitignored)`);
   console.log(`✓ wired PreToolUse/PostToolUse hooks into .claude/settings.json`);
+  console.log(`✓ registered the coordination MCP server in .mcp.json (gitignored)`);
+  console.log(`✓ added a "Working together" section to CLAUDE.md`);
   console.log(`\n  server : ${serverUrl}`);
   console.log(`  relay  : ${relayUrl}`);
   console.log(`  repo   : ${repo}`);

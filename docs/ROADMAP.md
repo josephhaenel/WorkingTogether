@@ -27,7 +27,9 @@ Each initiative lists its **goal**, **why it matters**, the **key tasks**, **dep
 **Depends on:** nothing (the daemon + hooks already exist).
 **Size:** M.
 
-## 2. Make agents *use* the shared brain — *realize the unique value*
+## 2. Make agents *use* the shared brain — *realize the unique value* 🚧 in progress
+
+**Status:** the decisions bus is now reachable via REST + the `wt` CLI (`wt who`, `wt decisions [--path]`, `wt decide`), and `wt init` registers the coordination MCP server in `.mcp.json` (so the agent gets `wt_whos_editing` / `wt_get_decisions` / `wt_post_decision` natively) and writes a `CLAUDE.md` "Working together" section instructing the agent to check who's-editing, read decisions before starting, and record decisions as it makes them. Remaining: auto-inject scope-relevant decisions on a claim grant; tune the guidance with real usage.
 
 **Goal:** agents actively consult presence and the decisions bus during real work, not just claim-before-write.
 **Why:** the decisions bus and awareness only pay off if agents read/write them; this is what makes the tool "shared context," not just "file locking."

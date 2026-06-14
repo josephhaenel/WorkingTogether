@@ -15,10 +15,11 @@
  */
 
 import express, { type Request, type Response } from "express";
+import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CoordinationStore } from "./store.js";
 import { buildServer } from "./server.js";
-import type { Kind, Mode } from "./types.js";
+import type { DecisionScope, Kind, Mode } from "./types.js";
 
 const PORT = parseInt(process.env.PORT || "4100", 10);
 const ENFORCE_REGISTRATION = process.env.WT_ENFORCE_REGISTRATION === "1";
@@ -142,6 +143,44 @@ app.get("/v1/whos_editing", (req: Request, res: Response) => {
     return;
   }
   res.json(store.whosEditing(repo, { pathGlob: req.query.path_glob ? String(req.query.path_glob) : undefined }));
+});
+
+// ---- decisions bus (REST mirror of the wt_post_decision / wt_get_decisions tools) ----
+app.get("/v1/decisions", (req: Request, res: Response) => {
+  const repo = String(req.query.repo ?? "");
+  if (!repo) {
+    res.status(400).json({ error: "repo query param required" });
+    return;
+  }
+  const scope: DecisionScope = {
+    level: (String(req.query.level ?? "repo") as DecisionScope["level"]),
+    id: req.query.id ? String(req.query.id) : undefined,
+    pathHint: req.query.path ? String(req.query.path) : undefined,
+  };
+  const includeSuperseded = req.query.include_superseded === "1";
+  res.json({ decisions: store.getDecisions(repo, scope, includeSuperseded) });
+});
+
+app.post("/v1/decisions", (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  if (!b.repo || !b.title || !b.body || !b.author) {
+    res.status(400).json({ error: "repo, title, body, author are required" });
+    return;
+  }
+  const r = store.postDecision({
+    repo: b.repo,
+    scope: { level: b.level ?? "repo", id: b.id, pathHint: b.path },
+    kind: b.kind ?? "note",
+    title: b.title,
+    body: b.body,
+    author: b.author,
+    authorKind: (b.author_kind as Kind) ?? "agent",
+    supersedes: b.supersedes,
+    tags: b.tags,
+    requestId: b.request_id ?? randomUUID(),
+  });
+  if (r.ok) res.json(r.value);
+  else res.status(409).json(r.error);
 });
 
 app.get("/healthz", (_req: Request, res: Response) => {
