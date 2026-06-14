@@ -11,6 +11,7 @@
     "demo": "node examples/combined-demo.mjs",
     "demo:sync": "npm --prefix packages/sync-daemon run demo",
     "demo:persist": "node examples/relay-persistence-check.mjs",
+    "demo:enforce": "node examples/enforcement-check.mjs",
     "start:coord": "npm --prefix packages/coordination-mcp-server start",
     "start:relay": "npm --prefix packages/sync-relay start"
   }

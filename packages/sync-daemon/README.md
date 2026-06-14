@@ -43,5 +43,5 @@ This slice is **"live shared working tree."** Intentionally **not** here yet (se
 - git baseline / epoch landing / durable snapshotting — the CRDT is the live state; the relay is in-memory.
 - the nodeId tree-CRDT — files are keyed by path; **rename = delete + create** for now.
 - text files only, under 512 KB; binary/large files are skipped.
-- **collision avoidance** is provided by the coordination layer (claims), not here. Two agents rewriting the *same* region concurrently would CRDT-merge; that case is what `wt_claim` (in `coordination-mcp-server`) exists to prevent. Run both together for the full picture.
+- **collision avoidance** comes from the coordination layer (claims). The Claude Code hook gates agent edits before they happen; additionally, pass `--coord http://host:4100 --actor <id> --repo <id>` to enable **daemon-side enforcement** ([D-46]): a local edit that bypasses the hook (e.g. a plain-editor save) is checked against claims and reverted if another actor holds the region. Without `--coord`, the daemon is pure sync. See `examples/enforcement-check.mjs`.
 - offline reconnect, structural-op fidelity, secrets purge, fencing — all per the spec.

@@ -38,7 +38,10 @@ npm test            # coordination-server unit tests
    ```bash
    export WT_ACTOR_ID="alice"      # unique per person
    export WT_REPO="my-repo"        # SAME for everyone on this repo
-   node packages/sync-daemon/dist/index.js --dir . --relay ws://RELAY_HOST:4200 --room my-repo
+   # add --coord for enforcement: edits that bypass the hook (e.g. a plain editor)
+   # are then also gated against claims and reverted if someone else holds the region.
+   node packages/sync-daemon/dist/index.js --dir . --relay ws://RELAY_HOST:4200 \
+        --room my-repo --coord http://COORD_HOST:4100 --actor "$WT_ACTOR_ID" --repo "$WT_REPO"
    ```
 3. **Wire Claude Code** (in the repo's `.claude/settings.json`):
    ```jsonc
@@ -61,4 +64,4 @@ npm test            # coordination-server unit tests
 
 ## Current limits (MVP)
 
-Durable state is opt-in via `WT_DATA_DIR` / `WT_RELAY_DATA_DIR` (decisions, identity, and the per-repo CRDT survive restarts; active claims/presence are TTL-ephemeral by design). Still MVP: text files only, under 512 KB; rename = delete+create; identity is first-seen-trust; enforcement is hook-side only. The remaining production hardening (git-baseline landing, fencing on the write path, crypto identity/trust-root, daemon-side enforcement) is specified in the design docs and tracked as next steps.
+Durable state is opt-in via `WT_DATA_DIR` / `WT_RELAY_DATA_DIR` (decisions, identity, and the per-repo CRDT survive restarts; active claims/presence are TTL-ephemeral by design). Claim enforcement works both at the Claude Code hook AND, opt-in, at the daemon (`--coord`) so hook-bypassing edits are gated too. Still MVP: text files only, under 512 KB; rename = delete+create; identity is first-seen-trust. The remaining production hardening (git-baseline landing, monotonic fencing threaded to the write path, crypto identity/trust-root) is specified in the design docs and tracked as next steps.

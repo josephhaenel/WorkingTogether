@@ -33,6 +33,12 @@ export interface DaemonOptions {
   relayUrl: string; // e.g. ws://localhost:4200
   room: string;
   log?: (msg: string) => void;
+  /** Opt-in claim enforcement ([D-46]): if set, a local edit is gated by the
+   *  coordination server before broadcasting, and reverted if another actor
+   *  holds the region. Catches edits that bypass the Claude Code hook. */
+  coordUrl?: string; // e.g. http://localhost:4100
+  actorId?: string; // must match the hook's WT_ACTOR_ID for reentrancy
+  repoId?: string; // claim repo id (defaults to room); must match the hook's WT_REPO
 }
 
 export class SyncDaemon {
@@ -43,11 +49,15 @@ export class SyncDaemon {
   private readonly shadow = new Map<string, string>();
   private watcher?: FSWatcher;
   private readonly log: (msg: string) => void;
+  private readonly enforce: boolean;
+  private readonly repoId: string;
 
   constructor(private readonly opts: DaemonOptions) {
     this.log = opts.log ?? ((m) => console.error(`[daemon] ${m}`));
     this.files = this.doc.getMap<Y.Text>("files");
     this.ig = buildIgnore(opts.repoDir);
+    this.enforce = Boolean(opts.coordUrl && opts.actorId);
+    this.repoId = opts.repoId ?? opts.room;
     this.provider = new WebsocketProvider(opts.relayUrl, opts.room, this.doc, {
       WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
       connect: true,
@@ -154,6 +164,43 @@ export class SyncDaemon {
     }
   }
 
+  // ---- enforcement ([D-46]): gate a local edit before it is broadcast ----
+  private async handleLocalWrite(rel: string, content: string): Promise<void> {
+    if (this.shadow.get(rel) === content) return; // remote apply or unchanged
+    if (this.enforce) {
+      const chk = await this.canWrite(rel);
+      if (!chk.allowed) {
+        await this.revertToCrdt(rel);
+        this.log(`BLOCKED local edit to ${rel}: region held by ${chk.holder} (${chk.holderKind}); reverted`);
+        return;
+      }
+    }
+    this.diskToCrdt(rel, content);
+  }
+
+  private async canWrite(
+    rel: string
+  ): Promise<{ allowed: boolean; holder?: string; holderKind?: string }> {
+    try {
+      const url =
+        `${this.opts.coordUrl}/v1/can_write?repo=${encodeURIComponent(this.repoId)}` +
+        `&actorId=${encodeURIComponent(this.opts.actorId!)}&path=${encodeURIComponent(rel)}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(1500) });
+      return (await resp.json()) as { allowed: boolean; holder?: string; holderKind?: string };
+    } catch {
+      return { allowed: true }; // fail-open: never hard-block editing if coordination is down
+    }
+  }
+
+  private async revertToCrdt(rel: string): Promise<void> {
+    const text = this.files.get(rel);
+    if (!text) return; // not a shared file yet; nothing authoritative to revert to
+    const content = text.toString();
+    this.shadow.set(rel, content); // so the resulting watcher event is ignored
+    await fsp.mkdir(path.dirname(this.abs(rel)), { recursive: true });
+    await fsp.writeFile(this.abs(rel), content, "utf8");
+  }
+
   // ---- disk -> CRDT ----
   private diskToCrdt(rel: string, content: string): void {
     if (this.shadow.get(rel) === content) return; // unchanged / our own remote write
@@ -205,7 +252,7 @@ export class SyncDaemon {
       if (!rel) return;
       this.readText(rel)
         .then((content) => {
-          if (content !== null) this.diskToCrdt(rel, content);
+          if (content !== null) return this.handleLocalWrite(rel, content);
         })
         .catch(() => {});
     };

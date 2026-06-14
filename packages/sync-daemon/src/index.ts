@@ -19,7 +19,13 @@ const repoDir = path.resolve(arg("dir") || process.env.WT_DIR || process.cwd());
 const relayUrl = arg("relay") || process.env.WT_RELAY || "ws://localhost:4200";
 const room = arg("room") || process.env.WT_ROOM || path.basename(repoDir);
 
-const daemon = new SyncDaemon({ repoDir, relayUrl, room });
+// Optional claim enforcement ([D-46]): pass --coord + --actor (or WT_COORD_URL +
+// WT_ACTOR_ID) to gate local edits that bypass the Claude Code hook.
+const coordUrl = arg("coord") || process.env.WT_COORD_URL || undefined;
+const actorId = arg("actor") || process.env.WT_ACTOR_ID || undefined;
+const repoId = arg("repo") || process.env.WT_REPO || room;
+
+const daemon = new SyncDaemon({ repoDir, relayUrl, room, coordUrl, actorId, repoId });
 
 daemon.start().catch((e) => {
   console.error("[daemon] fatal:", e);

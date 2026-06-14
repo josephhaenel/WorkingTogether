@@ -107,6 +107,18 @@ app.post("/v1/release_by_region", (req: Request, res: Response) => {
   res.json(store.releaseByRegion(r.regionId, b.actorId));
 });
 
+app.get("/v1/can_write", (req: Request, res: Response) => {
+  const repo = String(req.query.repo ?? "");
+  const actorId = String(req.query.actorId ?? "");
+  const p = String(req.query.path ?? "");
+  if (!repo || !actorId || !p) {
+    res.status(400).json({ error: "repo, actorId, path query params required" });
+    return;
+  }
+  const r = store.resolveRegion(repo, p, req.query.symbol ? String(req.query.symbol) : undefined);
+  res.json(store.canWrite(r.regionId, actorId));
+});
+
 app.get("/v1/whos_editing", (req: Request, res: Response) => {
   const repo = String(req.query.repo ?? "");
   if (!repo) {
