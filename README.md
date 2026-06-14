@@ -24,6 +24,7 @@ So the core insight driving the design: **the CRDT is only transport + convergen
 - **Collision avoidance.** Before an agent edits a file, it *claims* the region. If another agent holds it, the edit is refused (agent-vs-agent → hard block; a human involved → soft warn). Enforced at the Claude Code hook **and**, optionally, at the sync daemon — so even a plain-editor save can't bypass it.
 - **Live file sync.** Edits propagate between collaborators' working trees in real time over a shared CRDT.
 - **Shared memory.** An append-only "decisions" bus lets agents record and retrieve the few decisions relevant to the code they're touching.
+- **Live dashboard.** The coordination server serves a dark, auto-refreshing web view of who's editing what, presence, and recent decisions — open `https://<server>/` and enter the token.
 - **Durable + secure.** Opt-in persistence (state survives restarts) and a shared-secret auth token for remote deployments.
 
 ---

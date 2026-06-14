@@ -191,19 +191,14 @@ app.post("/v1/decisions", (req: Request, res: Response) => {
 });
 
 // ---- awareness dashboard (public shell; data via the token-gated /v1/overview) ----
-const DASHBOARD_HTML = (() => {
-  try {
-    return fs.readFileSync(
-      path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "dashboard.html"),
-      "utf8"
-    );
-  } catch {
-    return "<!doctype html><title>WorkingTogether</title><h1>WorkingTogether</h1><p>dashboard.html not found</p>";
-  }
-})();
+const DASHBOARD_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "dashboard.html");
 
 app.get("/", (_req: Request, res: Response) => {
-  res.type("html").send(DASHBOARD_HTML);
+  try {
+    res.type("html").send(fs.readFileSync(DASHBOARD_PATH, "utf8"));
+  } catch {
+    res.type("html").send("<!doctype html><title>WorkingTogether</title><h1>WorkingTogether</h1><p>dashboard.html not found</p>");
+  }
 });
 
 app.get("/v1/overview", (_req: Request, res: Response) => {
