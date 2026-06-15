@@ -7,7 +7,7 @@
   "scripts": {
     "install:all": "npm --prefix packages/coordination-mcp-server install && npm --prefix packages/sync-relay install && npm --prefix packages/sync-daemon install && npm --prefix packages/cli install",
     "build": "npm --prefix packages/coordination-mcp-server run build && npm --prefix packages/sync-relay run build && npm --prefix packages/sync-daemon run build && npm --prefix packages/cli run build",
-    "test": "npm --prefix packages/coordination-mcp-server test",
+    "test": "npm --prefix packages/coordination-mcp-server test && npm --prefix packages/cli test",
     "demo": "node examples/combined-demo.mjs",
     "demo:sync": "npm --prefix packages/sync-daemon run demo",
     "demo:persist": "node examples/relay-persistence-check.mjs",

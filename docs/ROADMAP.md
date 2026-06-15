@@ -50,9 +50,11 @@ Each initiative lists its **goal**, **why it matters**, the **key tasks**, **dep
 **Depends on:** 2 (so there's presence + decision activity worth showing).
 **Size:** M.
 
-## 4. Smarter collision avoidance — *core capability depth* 🚧 in progress
+## 4. Smarter collision avoidance — *core capability depth* ✅ region claims done (diff3 deferred)
 
-**Status:** the store now enforces the repo ⊃ node ⊃ region **containment lattice** (two agents can hold different symbols in one file; a whole-file claim still blocks all regions in it; the daemon's node-grain check conservatively over-blocks). 18 unit tests. Remaining: the hook's symbol resolver (a conservative, dependency-free heuristic that degrades to whole-file on any doubt), then `diff3` conflict-as-data. **Decision (from an adversarial design pass): defer diff3 conflict-as-data** — it has unresolved data-loss modes (a CRDT lacks the shared ancestor diff3 needs); keep the safe block/revert until it can be done without losing edits.
+**Done:** the store enforces the repo ⊃ node ⊃ region **containment lattice**, and the hook resolves the enclosing symbol so **two agents can edit different functions in the same file** while the same function (or a whole-file claim) still blocks. The resolver (`packages/cli/src/region.ts`) is a conservative, dependency-free heuristic (brace-family languages; masks strings/comments; name-based ids for cross-peer determinism) that **degrades to whole-file on any doubt** (multi-match, anonymous, ambiguous name, minified, unsupported language, unreadable file). 31 unit tests + a live two-agent integration check.
+
+**Deferred (by an adversarial design pass): `diff3` conflict-as-data** — it has unresolved data-loss modes (a CRDT lacks the shared ancestor diff3 needs), so the safe block/revert stays until it can be done without losing edits. Also future: committed-bytes resolution daemon-side (vs on-disk) and tree-sitter behind the same resolver interface.
 
 **Goal:** two agents can work in the **same file, different functions**, and overlaps surface gracefully.
 **Why:** whole-file claims are coarse; region-level is the headline capability jump (and it's already designed in `coordination-mcp.md`).

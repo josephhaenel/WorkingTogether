@@ -5,8 +5,39 @@
  * server is unreachable, editing is never blocked.
  */
 import path from "node:path";
+import fs from "node:fs";
 import crypto from "node:crypto";
 import { loadConfig, authHeaders } from "./config.js";
+import { resolveTarget, resolveMultiEdit, extOf, type ResolvedTarget } from "./region.js";
+
+const NODE_TARGET: ResolvedTarget = { symbol: null, byteRange: null, grain: "node" };
+
+/** Resolve the symbol-level region for an Edit/MultiEdit; Write or any
+ *  uncertainty degrades to whole-file (node) grain. Never throws. */
+function resolveRegionForEdit(
+  filePath: string,
+  ti: { old_string?: string; content?: string; edits?: Array<{ old_string?: string }> }
+): ResolvedTarget {
+  try {
+    // Write (content, no old_string) is a whole-file change
+    if (ti.content !== undefined && ti.old_string === undefined && !ti.edits) return NODE_TARGET;
+    let src: string;
+    try {
+      src = fs.readFileSync(filePath, "utf8");
+    } catch {
+      return NODE_TARGET; // file doesn't exist yet / unreadable -> node
+    }
+    const ext = extOf(filePath);
+    if (Array.isArray(ti.edits) && ti.edits.length) {
+      const olds = ti.edits.map((e) => e.old_string).filter((s): s is string => typeof s === "string");
+      return resolveMultiEdit(src, olds, ext);
+    }
+    if (typeof ti.old_string === "string") return resolveTarget(src, ti.old_string, ext);
+    return NODE_TARGET;
+  } catch {
+    return NODE_TARGET;
+  }
+}
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -38,7 +69,10 @@ function relPath(filePath: string): string {
 
 export async function hookPre(): Promise<void> {
   const cfg = loadConfig();
-  let input: { tool_name?: string; tool_input?: { file_path?: string } } = {};
+  let input: {
+    tool_name?: string;
+    tool_input?: { file_path?: string; old_string?: string; content?: string; edits?: Array<{ old_string?: string }> };
+  } = {};
   try {
     input = JSON.parse((await readStdin()) || "{}");
   } catch {
@@ -47,6 +81,8 @@ export async function hookPre(): Promise<void> {
   const filePath = input?.tool_input?.file_path;
   if (!filePath) decide("allow", "wt: no file_path; nothing to claim");
   const posixRel = relPath(filePath!);
+  const target = resolveRegionForEdit(filePath!, input.tool_input ?? {});
+  const label = target.symbol ? `${posixRel}#${target.symbol}` : posixRel;
 
   try {
     const resp = await fetch(`${cfg.serverUrl}/v1/claim`, {
@@ -56,8 +92,10 @@ export async function hookPre(): Promise<void> {
         repo: cfg.repo,
         actorId: cfg.actor,
         path: posixRel,
+        symbol: target.symbol ?? undefined,
+        byte_range: target.byteRange ?? undefined,
         origin: "agent",
-        intent: `${input.tool_name} ${posixRel}`,
+        intent: `${input.tool_name} ${label}`,
         request_id: crypto.randomUUID(),
       }),
       signal: AbortSignal.timeout(1500),
@@ -68,9 +106,9 @@ export async function hookPre(): Promise<void> {
       conflicts?: Array<{ holder: string }>;
       error?: { holder?: string; holder_kind?: string; intent?: string; retry_after_ms?: number };
     };
-    if (out.result === "GRANTED") decide("allow", `wt: claimed ${posixRel} (fence ${out.claim?.fence})`);
+    if (out.result === "GRANTED") decide("allow", `wt: claimed ${label} (fence ${out.claim?.fence})`);
     if (out.result === "WARN_PROCEED")
-      decide("ask", `wt: ${out.conflicts?.[0]?.holder ?? "someone"} is also working on ${posixRel}. Proceed?`);
+      decide("ask", `wt: ${out.conflicts?.[0]?.holder ?? "someone"} is also working on ${label}. Proceed?`);
     if (out.result === "BLOCKED") {
       const e = out.error ?? {};
       decide(
