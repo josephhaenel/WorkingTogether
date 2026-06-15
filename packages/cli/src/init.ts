@@ -118,7 +118,8 @@ You are sharing this repository with other people and their AI agents at the sam
 
 - **Before editing**, check who else is active: \`hive who\` (or the \`hive_whos_editing\` MCP tool). If another agent holds the file you need, work on something else and come back.
 - **When you claim a file to edit, its relevant decisions are surfaced to you automatically** (repo + file + symbol scope) — read them and honor them; they're constraints/conventions teammates established. To pull the full list any time: \`hive decisions --path <file>\` (or \`hive_get_decisions\`).
-- **When you make a notable choice** (a convention, constraint, interface contract, or non-obvious rationale), record it so others' agents pick it up: \`hive decide "<short title>" --path <file>\` (or \`hive_post_decision\`).
+- **Have a question about how this team does something?** Ask the shared brain: \`hive ask "what's our X convention?"\` (or \`hive_ask\`) before inventing an answer.
+- **When you make a notable choice** (a convention, constraint, interface contract, or non-obvious rationale), record it so others' agents pick it up: \`hive decide "<short title>" --path <file>\` (or \`hive_post_decision\`). To see which of your recent edits still need a decision, run \`hive capture\`.
 - Your \`Edit\`/\`Write\` calls are auto-claimed by a hook. If one is **denied** because another agent holds the file, switch tasks and retry shortly rather than forcing it.
 ${CLAUDE_MD_END}
 `;

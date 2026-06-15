@@ -13,6 +13,8 @@ import {
   announceShape,
   claimShape,
   getDecisionsShape,
+  askDecisionsShape,
+  captureShape,
   heartbeatShape,
   postDecisionShape,
   registerShape,
@@ -63,6 +65,13 @@ function claimResult(o: ClaimOutcome): CallToolResult {
         conflicts: o.conflicts,
         message:
           "A human is involved on this region. You may proceed, but your edit may become a tracked conflict. Coordinate via hive_whos_editing.",
+        decisions: o.decisions.map((d) => ({
+          kind: d.kind,
+          title: d.title,
+          body: d.body,
+          author: d.author,
+          scope: d.scope,
+        })),
       });
     case "BLOCKED":
     case "ERROR":
@@ -285,6 +294,49 @@ export function buildServer(store: CoordinationStore): McpServer {
           author: d.author,
           tags: d.tags,
           superseded: Boolean(d.supersededBy),
+        })),
+      });
+    }
+  );
+
+  server.registerTool(
+    "hive_capture",
+    {
+      title: "List your recent edits that have no recorded decision",
+      description:
+        "Returns the files/symbols you've recently edited that don't yet have a shared decision. After a deliberate convention/constraint/interface choice, use this to find what to record via hive_post_decision (so the team's agents pick it up).",
+      inputSchema: captureShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const captures = store.recentCaptures(a.repo, a.actorId);
+      return ok({ count: captures.length, captures });
+    }
+  );
+
+  server.registerTool(
+    "hive_ask",
+    {
+      title: "Ask the shared brain a question",
+      description:
+        "Keyword search over the team's recorded decisions (constraints/conventions/interfaces) relevant to a scope. Use it to answer 'what's our convention for X?' before deciding how to implement. Keyword retrieval over a curated corpus — not semantic search.",
+      inputSchema: askDecisionsShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const scope = a.scope_level ? { level: a.scope_level, id: a.scope_id, pathHint: a.path_hint } : undefined;
+      const decisions = store.askDecisions(a.repo, a.query, scope, a.limit);
+      return ok({
+        count: decisions.length,
+        query: a.query,
+        decisions: decisions.map((d) => ({
+          id: d.decisionId,
+          scope: d.scope,
+          kind: d.kind,
+          title: d.title,
+          body: d.body,
+          author: d.author,
+          tags: d.tags,
         })),
       });
     }

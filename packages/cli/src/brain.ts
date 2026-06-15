@@ -69,6 +69,63 @@ export async function decisions(): Promise<void> {
   }
 }
 
+export async function capture(): Promise<void> {
+  const cfg = loadConfig();
+  try {
+    const data = (await api(cfg, `/v1/captures?repo=${encodeURIComponent(cfg.repo)}&actor=${encodeURIComponent(cfg.actor)}`)) as {
+      captures?: Array<{ anchor: string; path: string; intent?: string }>;
+    };
+    const list = data.captures ?? [];
+    if (!list.length) {
+      console.log("no recent edits without a recorded decision — you're all caught up");
+      return;
+    }
+    console.log("Recent edits with no recorded decision. If any was a deliberate choice, record it:");
+    for (const c of list) {
+      console.log(`  ${c.anchor}${c.intent ? `  (${c.intent})` : ""}`);
+      console.log(`    hive decide "<the rule you chose>" --path ${c.path} --kind convention`);
+    }
+  } catch (e) {
+    console.error(`hive capture: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+
+export async function ask(): Promise<void> {
+  const cfg = loadConfig();
+  const positional = process.argv.slice(3).filter((a) => !a.startsWith("--"));
+  const query = flag("query") ?? positional.join(" ");
+  if (!query) {
+    console.error('usage: hive ask "<question>" [--path <file>] [--limit N]');
+    process.exit(2);
+  }
+  const path = flag("path");
+  const qs = new URLSearchParams({ repo: cfg.repo, q: query });
+  if (path) {
+    qs.set("level", "node");
+    qs.set("path", path);
+  }
+  if (flag("limit")) qs.set("limit", flag("limit")!);
+  try {
+    const data = (await api(cfg, `/v1/ask?${qs.toString()}`)) as {
+      decisions?: Array<{ kind: string; title: string; body: string; scope: { level: string; id?: string }; author: string }>;
+    };
+    const list = data.decisions ?? [];
+    if (!list.length) {
+      console.log(`no matching decisions for "${query}" (keyword search — try different terms or 'hive decisions')`);
+      return;
+    }
+    for (const d of list) {
+      const scope = d.scope.level === "repo" ? "repo" : `${d.scope.level}:${d.scope.id ?? ""}`;
+      console.log(`• [${d.kind}] ${d.title}  (${scope}, by ${d.author})`);
+      if (d.body && d.body !== d.title) console.log(`    ${d.body}`);
+    }
+  } catch (e) {
+    console.error(`hive ask: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+
 export async function announce(): Promise<void> {
   const cfg = loadConfig();
   const positional = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : undefined;
@@ -110,13 +167,18 @@ export async function decide(): Promise<void> {
     level: path ? "node" : "repo",
     id: path,
     path,
+    supersedes: flag("supersedes"),
     request_id: crypto.randomUUID(),
   };
   try {
     const r = (await api(cfg, "/v1/decisions", { method: "POST", body: JSON.stringify(body) })) as {
       decisionId?: string;
+      conflicts?: Array<{ decisionId: string; title: string; reason: string }>;
     };
     console.log(`recorded decision ${r.decisionId ?? ""}`.trim());
+    for (const c of r.conflicts ?? []) {
+      console.log(`⚠ may contradict "${c.title}" (${c.reason}). If intended, re-record with --supersedes ${c.decisionId}.`);
+    }
   } catch (e) {
     console.error(`hive decide: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);

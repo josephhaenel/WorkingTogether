@@ -277,6 +277,62 @@ test("scopeIntersects respects path boundaries (a.tsx's decision is not injected
   assert.ok(o.result === "GRANTED" && o.decisions.length === 0); // prefix bleed must not happen
 });
 
+test("WARN_PROCEED carries the shared decisions, deduped per actor on the warn path", () => {
+  const s = new CoordinationStore();
+  postDecision(s, { scope: { level: "repo" }, kind: "constraint", title: "c1", rid: "w1" });
+  assert.equal(s.claim(mkReq(s, { actorId: "H", origin: "human", symbol: "foo" })).result, "GRANTED");
+  const w = s.claim(mkReq(s, { actorId: "A", origin: "agent", symbol: "foo" }));
+  assert.equal(w.result, "WARN_PROCEED");
+  if (w.result !== "WARN_PROCEED") return;
+  assert.deepEqual(w.decisions.map((d) => d.title), ["c1"]); // the human-involved path gets the brain
+  const w2 = s.claim(mkReq(s, { actorId: "A", origin: "agent", symbol: "foo" }));
+  assert.ok(w2.result === "WARN_PROCEED" && w2.decisions.length === 0); // not re-spammed every edit
+});
+
+test("hive ask ranks by keyword coverage (with synonyms) and returns [] on no match", () => {
+  const s = new CoordinationStore();
+  postDecision(s, { scope: { level: "repo" }, kind: "convention", title: "Error handling uses Result", rid: "a1" });
+  postDecision(s, { scope: { level: "repo" }, kind: "convention", title: "Use 2-space indentation", rid: "a2" });
+  const hits = s.askDecisions("demo", "how do we handle exceptions?");
+  assert.equal(hits[0].title, "Error handling uses Result"); // 'exception' -> 'error' synonym
+  assert.equal(s.askDecisions("demo", "database sharding strategy").length, 0); // nothing matches -> empty, not noise
+});
+
+test("conflict detection flags an opposite-stance decision (advisory), never on a supersede", () => {
+  const s = new CoordinationStore();
+  const r1 = postDecision(s, { scope: { level: "repo" }, kind: "constraint", title: "Use tabs for indentation", rid: "k1" });
+  const r2 = postDecision(s, { scope: { level: "repo" }, kind: "constraint", title: "Use spaces for indentation", rid: "k2" });
+  assert.ok(r1.ok && r2.ok);
+  if (!r1.ok || !r2.ok) return;
+  assert.equal(r2.value.conflicts?.length, 1);
+  assert.equal(r2.value.conflicts?.[0].title, "Use tabs for indentation");
+  // a legitimate supersede of the tabs head is NOT a conflict
+  const r3 = s.postDecision({
+    repo: "demo", scope: { level: "repo" }, kind: "constraint", title: "spaces only", body: "x",
+    author: "a", authorKind: "human", supersedes: r1.value.decisionId, requestId: "k3",
+  });
+  assert.ok(r3.ok && !r3.value.conflicts);
+});
+
+test("postDecision is idempotent on request_id (a retry replays, never double-posts)", () => {
+  const s = new CoordinationStore();
+  const r1 = s.postDecision({ repo: "demo", scope: { level: "repo" }, kind: "note", title: "t", body: "b", author: "a", authorKind: "human", requestId: "same" });
+  const r2 = s.postDecision({ repo: "demo", scope: { level: "repo" }, kind: "note", title: "t2", body: "b2", author: "a", authorKind: "human", requestId: "same" });
+  assert.ok(r1.ok && r2.ok && r1.value.decisionId === r2.value.decisionId);
+  assert.equal(s.getDecisions("demo", { level: "repo" }).length, 1);
+});
+
+test("capture surfaces an actor's recent edits that have no decision yet", () => {
+  const s = new CoordinationStore();
+  s.claim(mkReq(s, { actorId: "A", path: "src/a.ts", symbol: "foo" }));
+  s.claim(mkReq(s, { actorId: "A", path: "src/b.ts" }));
+  assert.deepEqual(s.recentCaptures("demo", "A").map((c) => c.path).sort(), ["src/a.ts", "src/b.ts"]);
+  // once a decision exists for a file, it drops out of the capture candidates
+  const rb = s.resolveRegion("demo", "src/b.ts");
+  postDecision(s, { scope: { level: "node", id: rb.nodeId, pathHint: "src/b.ts" }, title: "b rule", rid: "cap1" });
+  assert.deepEqual(s.recentCaptures("demo", "A").map((c) => c.path), ["src/a.ts"]);
+});
+
 test("persistence: decisions + identity survive across store instances", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wt-persist-"));
   try {

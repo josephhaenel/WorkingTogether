@@ -77,6 +77,20 @@ export const getDecisionsShape = {
   include_superseded: z.boolean().default(false),
 };
 
+export const askDecisionsShape = {
+  repo: z.string().min(1),
+  query: z.string().min(1).describe("Natural-language question, e.g. 'what's our error-handling convention?'. Keyword search over decisions (not semantic)."),
+  scope_level: z.enum(["repo", "node", "region", "task"]).optional(),
+  scope_id: z.string().optional(),
+  path_hint: z.string().optional().describe("Narrow to a file/symbol's decisions; omit to search the whole repo."),
+  limit: z.number().int().min(1).max(20).default(5),
+};
+
+export const captureShape = {
+  repo: z.string().min(1),
+  actorId: z.string().min(1),
+};
+
 export const registerShape = {
   actorId: z.string().min(1),
   kind: z.enum(["agent", "human"]),

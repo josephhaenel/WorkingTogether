@@ -79,6 +79,14 @@ export interface ConflictInfo {
   intent: string;
 }
 
+/** A soft, advisory signal that a newly-posted decision may contradict a live one.
+ *  Never blocks the post — surfaced so the author can supersede instead. */
+export interface DecisionConflict {
+  decisionId: string;
+  title: string;
+  reason: string;
+}
+
 export interface WtError {
   code: string;
   class: ErrorClass;
@@ -93,7 +101,7 @@ export interface WtError {
 
 export type ClaimOutcome =
   | { result: "GRANTED"; claim: Claim; decisions: Decision[] }
-  | { result: "WARN_PROCEED"; claim: Claim | null; conflicts: ConflictInfo[]; soft_fence: number }
+  | { result: "WARN_PROCEED"; claim: Claim | null; conflicts: ConflictInfo[]; soft_fence: number; decisions: Decision[] }
   | { result: "BLOCKED"; error: WtError }
   | { result: "ERROR"; error: WtError };
 

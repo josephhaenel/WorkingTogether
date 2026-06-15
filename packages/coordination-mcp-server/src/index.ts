@@ -188,6 +188,36 @@ app.get("/v1/decisions", (req: Request, res: Response) => {
   res.json({ decisions: store.getDecisions(repo, scope, includeSuperseded) });
 });
 
+// `hive ask` — keyword search over decisions (mirror of the hive_ask tool).
+app.get("/v1/ask", (req: Request, res: Response) => {
+  const repo = String(req.query.repo ?? "");
+  const query = String(req.query.q ?? req.query.query ?? "");
+  if (!repo || !query) {
+    res.status(400).json({ error: "repo and q query params required" });
+    return;
+  }
+  const scope: DecisionScope | undefined = req.query.level
+    ? {
+        level: String(req.query.level) as DecisionScope["level"],
+        id: req.query.id ? String(req.query.id) : undefined,
+        pathHint: req.query.path ? String(req.query.path) : undefined,
+      }
+    : undefined;
+  const limit = req.query.limit ? Math.max(1, Math.min(20, Number(req.query.limit))) : 5;
+  res.json({ query, decisions: store.askDecisions(repo, query, scope, limit) });
+});
+
+// `hive capture` — your recent edits with no recorded decision yet (capture candidates).
+app.get("/v1/captures", (req: Request, res: Response) => {
+  const repo = String(req.query.repo ?? "");
+  const actorId = String(req.query.actor ?? req.query.actorId ?? "");
+  if (!repo || !actorId) {
+    res.status(400).json({ error: "repo and actor query params required" });
+    return;
+  }
+  res.json({ captures: store.recentCaptures(repo, actorId) });
+});
+
 app.post("/v1/decisions", (req: Request, res: Response) => {
   const b = req.body ?? {};
   if (!b.repo || !b.title || !b.body || !b.author) {

@@ -82,6 +82,14 @@ function formatDecisions(ds: InjectedDecision[]): string {
   );
 }
 
+/** One-line digest of the most binding decisions for the human-facing approval prompt
+ *  (permissionDecisionReason). On the WARN_PROCEED "ask" path the agent doesn't read
+ *  additionalContext until AFTER approval, so the human adjudicating the conflict needs
+ *  to see the rules right here in the prompt. */
+function digestDecisions(ds: InjectedDecision[], n = 2): string {
+  return ds.slice(0, n).map((d) => `[${d.kind}] ${d.title}`).join("; ");
+}
+
 function relPath(filePath: string): string {
   const rel = path.isAbsolute(filePath) ? path.relative(process.cwd(), filePath) : filePath;
   return rel.split(path.sep).join("/");
@@ -132,8 +140,13 @@ export async function hookPre(): Promise<void> {
       const context = ds.length ? formatDecisions(ds) : undefined;
       decide("allow", `wt: claimed ${label} (fence ${out.claim?.fence})`, context);
     }
-    if (out.result === "WARN_PROCEED")
-      decide("ask", `wt: ${out.conflicts?.[0]?.holder ?? "someone"} is also working on ${label}. Proceed?`);
+    if (out.result === "WARN_PROCEED") {
+      const ds = Array.isArray(out.decisions) ? out.decisions : [];
+      const holder = out.conflicts?.[0]?.holder ?? "someone";
+      const rule = ds.length ? ` Team rules here: ${digestDecisions(ds)}.` : "";
+      const context = ds.length ? formatDecisions(ds) : undefined;
+      decide("ask", `wt: ${holder} is also working on ${label}. Proceed?${rule}`, context);
+    }
     if (out.result === "BLOCKED") {
       const e = out.error ?? {};
       decide(
