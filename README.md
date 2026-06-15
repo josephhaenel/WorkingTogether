@@ -21,11 +21,11 @@ So the core insight driving the design: **the CRDT is only transport + convergen
 
 ## What it does
 
-- **Collision avoidance.** Before an agent edits a file, it *claims* the region. If another agent holds it, the edit is refused (agent-vs-agent → hard block; a human involved → soft warn). Enforced at the Claude Code hook **and**, optionally, at the sync daemon — so even a plain-editor save can't bypass it.
+- **Collision avoidance, down to the symbol.** Before an agent edits, it *claims* the region — at the level of the **individual function/symbol**, so two agents can safely work in the same file at the same time. If another agent holds it, the edit is refused (agent-vs-agent → hard block; a human involved → soft warn). Enforced at the Claude Code hook **and**, optionally, at the sync daemon — so even a plain-editor save can't bypass it.
 - **Live file sync.** Edits propagate between collaborators' working trees in real time over a shared CRDT.
-- **Shared memory.** An append-only "decisions" bus lets agents record and retrieve the few decisions relevant to the code they're touching.
-- **Live dashboard.** The coordination server serves a dark, auto-refreshing web view of who's editing what, presence, and recent decisions — open `https://<server>/` and enter the token.
-- **Durable + secure.** Opt-in persistence (state survives restarts) and a shared-secret auth token for remote deployments.
+- **A shared brain, pushed to the agent.** Teams record "decisions" — constraints, conventions, interface contracts. The relevant ones are **auto-injected into the agent the moment it claims a file to edit**, so the team's rules reach the agent exactly when they matter, with no prompting and no pull.
+- **Live awareness dashboard.** The coordination server serves a dark, auto-refreshing web view of who's online, who's editing what, and recent decisions — open `https://<server>/` and enter the token.
+- **Durable + secure.** Persistence (decisions survive restarts) and a shared-secret auth token for remote deployments.
 
 ---
 
@@ -55,7 +55,7 @@ flowchart LR
 
 Two planes:
 
-- **Control plane (claims).** A Claude Code `PreToolUse` hook calls the coordination server to claim the target region before an `Edit`/`Write`; `PostToolUse` releases it. The coordination server is a single, linearizable authority that hands out **fence tokens** so a stale lease can never overwrite a newer one.
+- **Control plane (claims + shared brain).** A Claude Code `PreToolUse` hook calls the coordination server to claim the target region before an `Edit`/`Write`; `PostToolUse` releases it. The coordination server is a single, linearizable authority that hands out **fence tokens** so a stale lease can never overwrite a newer one. A successful claim also returns the decisions relevant to that file/symbol, which the hook surfaces to the agent — so "claim the code" and "learn the local rules" are the same step.
 - **Data plane (sync).** A per-machine daemon mirrors the gitignore-scoped working tree into a shared [Yjs](https://yjs.dev) CRDT via a relay: local writes become CRDT edits; remote edits get written back to disk. A "shadow" map breaks the feedback loop in both directions.
 
 The two planes compose: the daemon can check a claim before broadcasting a local edit, so collision avoidance covers edits that bypass the hook entirely.
@@ -108,24 +108,26 @@ Both specs were produced and **adversarially hardened** with multi-agent workflo
 
 ## Status & scope
 
-This is a working **MVP**: collision avoidance, live sync, shared decisions, persistence, and auth all function and are covered by demos/tests. Current simplifications (tracked toward the production design in the specs):
+This is a working **MVP, deployed and live**: collision avoidance (file **and** symbol level), live sync, the auto-injected decisions brain, live presence, persistence, and auth all function and are covered by demos/tests. Current simplifications (tracked toward the production design in the specs):
 
-- claims are whole-file in the current hook wiring (region/symbol-level is specified, not yet wired);
 - the CRDT is the live state (the git-baseline/epoch landing model is specified, not yet built);
 - text files only, under 512 KB; rename = delete+create;
-- shared-token auth (good for a team you invite; multi-user accounts are a later milestone).
+- shared-token auth (good for a team you invite; multi-user accounts are a later milestone);
+- conflict-as-data (diff3) is deferred — a CRDT lacks the shared ancestor diff3 needs, so concurrent same-region edits are kept safe by block/revert rather than three-way merge.
 
 Contributions and ideas welcome — start with the design docs.
 
 ## Roadmap
 
-Active plan to make it genuinely good to use (full detail in [docs/ROADMAP.md](docs/ROADMAP.md)):
+All four planned milestones have shipped and are deployed live (full detail + what's next in [docs/ROADMAP.md](docs/ROADMAP.md)):
 
-0. **CI & tests** — build + test + integration demos on every push.
-1. **Frictionless onboarding** — `npx @workingtogether/cli init` wires the hooks and starts the daemon in one command; `wt status`.
-2. **Agents use the shared brain** — agents actively check who's-editing and read/write the decisions bus during real work.
-3. **Awareness dashboard** — a live web view of presence, claims, and decisions.
-4. **Region-level claims** — tree-sitter symbol claims so two agents can work in the same file (different functions), with diff3 conflict-as-data.
+- ✅ **CI & tests** — build + test + integration demos on every push.
+- ✅ **Frictionless onboarding** — `wt init` wires the hooks, registers the MCP server, and writes a `CLAUDE.md` in one command; `wt up` / `wt status`. *(Remaining: publish to npm for clone-free `npx @workingtogether/cli`.)*
+- ✅ **Agents use the shared brain** — relevant decisions are auto-injected at claim time; agents also get `wt who` / `wt decisions` / `wt decide` and the matching MCP tools.
+- ✅ **Awareness dashboard** — a live web view of who's online, claims, presence, and decisions.
+- ✅ **Region-level claims** — a dependency-free symbol resolver lets two agents edit different functions in the same file. *(diff3 conflict-as-data intentionally deferred — see Status & scope.)*
+
+**Next:** the git-baseline/epoch landing model, live dashboard push (SSE instead of polling), and richer symbol resolution.
 
 ## License
 

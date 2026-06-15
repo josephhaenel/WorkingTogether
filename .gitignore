@@ -18,6 +18,9 @@ dist/
 .env.*
 !.env.example
 
+# local tooling (machine-specific preview/launch config)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
