@@ -69,6 +69,28 @@ export async function decisions(): Promise<void> {
   }
 }
 
+export async function announce(): Promise<void> {
+  const cfg = loadConfig();
+  const positional = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : undefined;
+  const state = flag("state") ?? positional ?? "online";
+  const body = {
+    repo: cfg.repo,
+    actorId: cfg.actor,
+    kind: flag("kind") ?? "human",
+    state,
+    path: flag("path"),
+    intent: flag("intent"),
+    ttl_ms: flag("ttl") ? Number(flag("ttl")) : undefined,
+  };
+  try {
+    await api(cfg, "/v1/announce", { method: "POST", body: JSON.stringify(body) });
+    console.log(`announced: ${state}${body.path ? " @ " + body.path : ""}`);
+  } catch (e) {
+    console.error(`wt announce: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+
 export async function decide(): Promise<void> {
   const cfg = loadConfig();
   const positional = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : undefined;

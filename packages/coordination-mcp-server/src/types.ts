@@ -56,6 +56,7 @@ export interface Decision {
 
 export interface Presence {
   actorId: string;
+  repo: string;
   kind: Kind;
   state: string; // idle | reading | thinking | editing | blocked-waiting | landing
   focus?: { regionId?: string; nodeId?: string; pathHint?: string; intent?: string };

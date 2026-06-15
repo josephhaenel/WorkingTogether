@@ -145,6 +145,24 @@ app.get("/v1/can_write", (req: Request, res: Response) => {
   res.json(store.canWrite({ repo, nodeId: r.nodeId, regionId: r.regionId, grain: r.grain, actorId }));
 });
 
+app.post("/v1/announce", (req: Request, res: Response) => {
+  const b = req.body ?? {};
+  if (!b.repo || !b.actorId) {
+    res.status(400).json({ error: "repo, actorId are required" });
+    return;
+  }
+  store.announce({
+    repo: b.repo,
+    actorId: b.actorId,
+    kind: (b.kind as Kind) ?? "human",
+    state: b.state ?? "online",
+    focus: b.path || b.intent ? { pathHint: b.path, intent: b.intent } : undefined,
+    lastProgress: b.progress_token ?? 0,
+    ttlMs: typeof b.ttl_ms === "number" ? b.ttl_ms : 30_000,
+  });
+  res.json({ ok: true });
+});
+
 app.get("/v1/whos_editing", (req: Request, res: Response) => {
   const repo = String(req.query.repo ?? "");
   if (!repo) {

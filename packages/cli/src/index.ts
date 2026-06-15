@@ -6,7 +6,7 @@ import { status } from "./status.js";
 import { hookPre, hookPost } from "./hook.js";
 import { init } from "./init.js";
 import { up, down } from "./daemon.js";
-import { who, decisions, decide } from "./brain.js";
+import { who, decisions, decide, announce } from "./brain.js";
 
 const HELP = `wt — WorkingTogether CLI
 
@@ -16,6 +16,7 @@ Usage:
   wt down                Stop the daemon
   wt status              Show server health + who's editing this repo
   wt who                 Who's editing what right now
+  wt announce [state]    Publish your presence (state: online|editing|reviewing|idle)
   wt decisions [--path P]            Read shared decisions (repo-wide, or for a file)
   wt decide "<title>" [--body ..] [--path P] [--kind K]   Record a decision
   wt hook pre|post       Internal: the Claude Code Edit/Write hooks (wired by init)
@@ -42,6 +43,9 @@ async function main(): Promise<void> {
       break;
     case "who":
       await who();
+      break;
+    case "announce":
+      await announce();
       break;
     case "decisions":
       await decisions();

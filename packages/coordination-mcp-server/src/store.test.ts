@@ -195,6 +195,16 @@ test("releaseByNode frees an actor's region claim; the file becomes claimable", 
   assert.equal(s.claim(mkReq(s, { actorId: "B" })).result, "GRANTED"); // bucket cleared
 });
 
+test("a claim lights up presence, scoped to its repo", () => {
+  const s = new CoordinationStore();
+  s.claim(mkReq(s, { repo: "r1", actorId: "A", symbol: "foo" }));
+  const here = s.whosEditing("r1");
+  assert.equal(here.presence.length, 1);
+  assert.equal(here.presence[0].actorId, "A");
+  assert.equal(here.presence[0].state, "editing");
+  assert.equal(s.whosEditing("r2").presence.length, 0); // scoped to r1
+});
+
 test("persistence: decisions + identity survive across store instances", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wt-persist-"));
   try {

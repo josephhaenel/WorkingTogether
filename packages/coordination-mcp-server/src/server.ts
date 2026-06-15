@@ -212,6 +212,7 @@ export function buildServer(store: CoordinationStore): McpServer {
     async (a) => {
       store.announce({
         actorId: a.actorId,
+        repo: a.repo,
         kind: a.kind,
         state: a.state,
         focus:

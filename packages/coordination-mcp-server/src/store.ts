@@ -211,6 +211,7 @@ export class CoordinationStore {
       }
       holders.set(req.actorId, claim);
       this.claimById.set(claim.claimId, claim);
+      this.touchPresence(req, effectiveKind);
       return this.remember(req.requestId, { result: "GRANTED", claim });
     }
 
@@ -222,6 +223,7 @@ export class CoordinationStore {
       if (req.progressToken && req.progressToken > ownExact.lastProgress) {
         ownExact.lastProgress = req.progressToken;
       }
+      this.touchPresence(req, ownExact.kind);
       return this.remember(req.requestId, { result: "GRANTED", claim: ownExact });
     }
 
@@ -252,6 +254,7 @@ export class CoordinationStore {
       const conflicts: ConflictInfo[] = [
         { regionId: existing.regionId, holder: existing.holder, holderKind: existing.kind, intent: existing.intent },
       ];
+      this.touchPresence(req, effectiveKind);
       return this.remember(req.requestId, { result: "WARN_PROCEED", claim: null, conflicts, soft_fence: this.nextFence() });
     }
 
@@ -260,6 +263,7 @@ export class CoordinationStore {
     this.exclusiveByRegion.set(req.regionId, claim);
     this.claimById.set(claim.claimId, claim);
     this.indexClaim(claim);
+    this.touchPresence(req, effectiveKind);
     return this.remember(req.requestId, { result: "GRANTED", claim });
   }
 
@@ -443,11 +447,28 @@ export class CoordinationStore {
     const now = this.now();
     this.presence.set(p.actorId, {
       actorId: p.actorId,
+      repo: p.repo,
       kind: p.kind,
       state: p.state,
       focus: p.focus,
       expiresAt: now + p.ttlMs,
       lastProgress: p.lastProgress,
+      updatedAt: now,
+    });
+  }
+
+  /** Claiming a region IS an act of presence — light up "editing <anchor>" so the
+   *  dashboard shows who's working where without any extra round-trip. TTL'd. */
+  private touchPresence(req: ClaimRequest, kind: Kind): void {
+    const now = this.now();
+    this.presence.set(req.actorId, {
+      actorId: req.actorId,
+      repo: req.repo,
+      kind,
+      state: "editing",
+      focus: { pathHint: req.anchor, intent: req.intent },
+      expiresAt: now + 30_000,
+      lastProgress: req.progressToken ?? 0,
       updatedAt: now,
     });
   }
@@ -464,7 +485,7 @@ export class CoordinationStore {
       if (scope?.pathGlob && !matchAnchor(scope.pathGlob, c.anchor)) continue;
       claims.push(c);
     }
-    const presence = [...this.presence.values()];
+    const presence = [...this.presence.values()].filter((p) => p.repo === repo);
     return { claims, presence };
   }
 
@@ -582,6 +603,7 @@ export class CoordinationStore {
       })),
       presence: [...this.presence.values()].map((p) => ({
         actorId: p.actorId,
+        repo: p.repo,
         kind: p.kind,
         state: p.state,
         focus: p.focus,

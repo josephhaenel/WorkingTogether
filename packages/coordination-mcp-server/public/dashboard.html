@@ -221,6 +221,7 @@
     const s = new Set();
     data.claims.forEach((c) => s.add(c.repo));
     data.decisions.forEach((d) => s.add(d.repo));
+    data.presence.forEach((p) => s.add(p.repo));
     return [...s].sort();
   }
 
@@ -236,7 +237,7 @@
     const inRepo = (x) => !selectedRepo || x.repo === selectedRepo;
     const claims = data.claims.filter(inRepo);
     const decisions = data.decisions.filter(inRepo);
-    const presence = data.presence; // presence is global (not repo-scoped yet)
+    const presence = data.presence.filter(inRepo);
 
     // stats
     const st = data.stats;
